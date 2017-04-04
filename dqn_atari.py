@@ -38,9 +38,6 @@ def create_model(window, input_shape, num_actions, model_name='dqn'):
     if model_name == 'dqn':
         hid = Dense(512, activation='relu', init='uniform')(feature)
         q_value = Dense(num_actions, init='uniform')(hid)
-        act = Input(shape=(num_actions,))
-        q_value_act = merge([q_value, act], mode='dot')
-        model = Model(input=[state, act], output=[q_value_act, q_value])
     elif model_name == 'dueling_dqn':
         value1 = Dense(512, activation='relu', init='uniform')(feature)
         value2 = Dense(1)(value1)
@@ -52,9 +49,9 @@ def create_model(window, input_shape, num_actions, model_name='dqn'):
         sum_adv = merge([exp_mean_advantage2, advantage2], mode='sum')
         exp_value2 = Lambda(lambda x: K.dot(x, ones))(value2)
         q_value = merge([exp_value2, sum_adv], mode='sum')
-        act = Input(shape=(num_actions,))
-        q_value_act = merge([q_value, act], mode='dot')
-        model = Model(input=[state, act], output=[q_value_act, q_value])
+    act = Input(shape=(num_actions,))
+    q_value_act = merge([q_value, act], mode='dot')
+    model = Model(input=[state, act], output=[q_value_act, q_value])
     return model
 
 
@@ -92,6 +89,8 @@ def main():
                         help='Discount factor gamma')
     parser.add_argument('--replay_buffer_size', default=100000, type=int,
                         help='Replay buffer size')
+    parser.add_argument('--online_train_interval', default=4, type=int,
+                        help='Interval to train the online network')
     parser.add_argument('--target_reset_interval', default=10000, type=int,
                         help='Interval to reset the target network')
     parser.add_argument('--num_burn_in', default=25000, type=int,

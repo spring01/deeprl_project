@@ -34,7 +34,7 @@ class DQNAgent(object):
             for ep_len in xrange(self.args.max_episode_length):
                 if done:
                     break
-                _, q_online = self.q_network['online'].predict([state, self.null_act])
+                q_online = self.predict_online(state)
                 act = self.policy['train'].select_action(q_online, 0)
                 state, state_mem_next, reward, done = self.get_state(env, act)
 
@@ -52,9 +52,9 @@ class DQNAgent(object):
             for ep_len in xrange(self.args.max_episode_length):
                 if done:
                     break
+
                 # get online q value and get action
-                
-                _, q_online = self.q_network['online'].predict([state, self.null_act])
+                q_online = self.predict_online(state)
                 act = self.policy['train'].select_action(q_online, iter_num)
 
                 # do action to get the next state
@@ -66,19 +66,24 @@ class DQNAgent(object):
                 self.memory.append(mem)
 
                 # update networks
-                self.train_online()
-                if not (iter_num % self.args.target_reset_interval):
+                if _every(iter_num, self.args.online_train_interval):
+                    self.train_online()
+                if _every(iter_num, self.args.target_reset_interval):
                     self.update_target()
 
-                if not (iter_num % self.args.eval_interval):
+                # evaluation
+                if _every(iter_num, self.args.eval_interval):
                     print '########## evaluation #############'
                     self.evaluate(env)
 
                 state_mem = state_mem_next
                 iter_num += 1
-                if not iter_num % 10:
+                if _every(iter_num, 10):
                     self.print_loss()
             print '{:d} out of {:d} iterations'.format(iter_num, self.args.num_train)
+
+    def predict_online(self, state):
+        return self.q_network['online'].predict([state, self.null_act])[1]
 
     def train_online(self):
         input_b, act_b, target_b = self.get_batch(self.args.batch_size)
@@ -106,7 +111,7 @@ class DQNAgent(object):
                     break
 
                 # get online q value and get action
-                _, q_online = self.q_network['online'].predict([state, self.null_act])
+                q_online = self.predict_online(state)
                 act = self.policy['eval'].select_action(q_online)
 
                 # do action to get the next state
@@ -158,7 +163,7 @@ class DQNAgent(object):
         act_b = np.stack(act_b)
         input_b_n = np.stack(input_b_n)
 
-        _, q_target_b_n = self.q_network['target'].predict([input_b_n, act_b])
+        q_target_b_n = self.q_network['target'].predict([input_b_n, act_b])[1]
         target_b = []
         for q_target, (_, _, rew, _, done_b) in zip(q_target_b_n, mini_batch):
             full_reward = rew
@@ -173,3 +178,5 @@ class DQNAgent(object):
         target_b = np.stack(target_b)
         return input_b, act_b, target_b
 
+def _every(iter_num, interval):
+    return not (iter_num % interval)
