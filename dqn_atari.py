@@ -25,7 +25,7 @@ from collections import deque
 import cPickle as pickle
 
 
-def create_model(window, timesteps, input_shape, num_actions, model_name='dqn'):
+def create_model(window, input_shape, num_actions, model_name='dqn'):
     model_input_shape = tuple([window] + list(input_shape))
     state = Input(shape=model_input_shape)
     conv1 = Convolution2D(32, 8, 8, subsample=(4, 4),
