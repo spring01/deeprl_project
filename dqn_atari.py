@@ -102,6 +102,13 @@ def main():
                         help='Learning rate alpha')
     parser.add_argument('--explore_prob', default=0.05, type=float,
                         help='Exploration probability in epsilon-greedy')
+    parser.add_argument('--decay_prob_start', default=1.0, type=float,
+                        help='Starting probability in linear-decay epsilon-greedy')
+    parser.add_argument('--decay_prob_end', default=0.1, type=float,
+                        help='Ending probability in linear-decay epsilon-greedy')
+    parser.add_argument('--decay_steps', default=1000000, type=int,
+                        help='Decay steps in linear-decay epsilon-greedy')
+
     parser.add_argument('--num_train', default=5000000, type=int,
                         help='Number of training sampled interactions with the environment')
     parser.add_argument('--max_episode_length', default=999999, type=int,
@@ -141,12 +148,11 @@ def main():
     preproc = AtariPreprocessor(args.input_shape)
     memory = ReplayMemory(args.replay_buffer_size, args.num_frame)
 
-    policy_random = UniformRandomPolicy(num_actions)
-    policy_train = LinearDecayGreedyEpsilonPolicy(args.explore_prob + 0.5,
-                                                  args.explore_prob,
-                                                  args.num_train)
+    policy_train = LinearDecayGreedyEpsilonPolicy(args.decay_prob_start,
+                                                  args.decay_prob_end,
+                                                  args.decay_steps)
     policy_eval = GreedyEpsilonPolicy(args.explore_prob)
-    policy = {'random': policy_random, 'train': policy_train, 'eval': policy_eval}
+    policy = {'train': policy_train, 'eval': policy_eval}
 
     agent = DQNAgent(num_actions, q_network, preproc, memory, policy, args)
     agent.compile([mean_huber_loss, null_loss], opt_adam)

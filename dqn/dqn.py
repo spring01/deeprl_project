@@ -43,6 +43,7 @@ class DQNAgent(object):
                 state_mem = state_mem_next
 
         iter_num = 0
+        eval_flag = False
         while iter_num <= self.args.num_train:
             env.reset()
             state, state_mem, _, done = self.get_state(env, 0)
@@ -70,10 +71,9 @@ class DQNAgent(object):
                 if _every(iter_num, self.args.target_reset_interval):
                     self.update_target()
 
-                # evaluation
+                # set evaluation flag
                 if _every(iter_num, self.args.eval_interval):
-                    print '########## evaluation #############'
-                    self.evaluate(env)
+                    eval_flag = True
 
                 # save model
                 if _every(iter_num, self.args.save_interval):
@@ -89,6 +89,11 @@ class DQNAgent(object):
                 iter_num += 1
                 if _every(iter_num, 100):
                     self.print_loss()
+            # evaluation
+            if eval_flag:
+                eval_flag = False
+                print '########## evaluation #############'
+                self.evaluate(env)
             print '{:d} out of {:d} iterations'.format(iter_num, self.args.num_train)
 
     def predict_online(self, state):
