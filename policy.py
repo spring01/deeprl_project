@@ -34,7 +34,7 @@ class GreedyEpsilonPolicy(Policy):
 
     def select_action(self, q_values):
         if np.random.rand() < self.epsilon:
-            return np.random.randint(0, q_values.shape[1])
+            return np.random.randint(0, q_values.size)
         else:
             return np.argmax(q_values)
 
@@ -51,6 +51,6 @@ class LinearDecayGreedyEpsilonPolicy(Policy):
         wt_start = 1.0 - wt_end
         epsilon = self.start_value * wt_start + self.end_value * wt_end
         if np.random.rand() <= epsilon:
-            return np.random.randint(0, q_values.shape[1])
+            return np.random.randint(0, q_values.size)
         else:
             return np.argmax(q_values)

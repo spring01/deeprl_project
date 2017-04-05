@@ -1,8 +1,7 @@
 
+import os
 import numpy as np
 import random
-import os
-import cPickle as pickle
 
 
 class DQNAgent(object):
@@ -27,7 +26,7 @@ class DQNAgent(object):
 
         # filling in self.args.num_burn_in states
         print '########## burning in some samples #############'
-        while len(self.memory) < self.args.num_burn_in:
+        while self.memory.length() < self.args.num_burn_in:
             env.reset()
             state, state_mem, _, done = self.get_state(env, 0)
 
@@ -62,7 +61,7 @@ class DQNAgent(object):
                 reward = self.preproc.clip_reward(reward)
 
                 # store transition into replay memory
-                mem = (state_mem, act, reward, state_mem_next, done)
+                mem = state_mem, act, reward, state_mem_next, done
                 self.memory.append(mem)
 
                 # update networks
@@ -76,9 +75,19 @@ class DQNAgent(object):
                     print '########## evaluation #############'
                     self.evaluate(env)
 
+                # save model
+                if _every(iter_num, self.args.save_interval):
+                    weights_save_name = os.path.join(self.args.output, 'online_{:d}.h5'.format(iter_num))
+                    print '########## saving models and memory #############'
+                    self.q_network['online'].save_weights(weights_save_name)
+                    print 'online weights written to {:s}'.format(weights_save_name)
+                    memory_save_name = os.path.join(self.args.output, 'memory.pickle')
+                    self.memory.save(memory_save_name)
+                    print 'replay memory written to {:s}'.format(memory_save_name)
+
                 state_mem = state_mem_next
                 iter_num += 1
-                if _every(iter_num, 10):
+                if _every(iter_num, 100):
                     self.print_loss()
             print '{:d} out of {:d} iterations'.format(iter_num, self.args.num_train)
 
@@ -90,8 +99,7 @@ class DQNAgent(object):
         self.q_network['online'].train_on_batch([input_b, act_b], [target_b, self.null_target])
 
     def print_loss(self):
-        loss_batch_size = min(len(self.memory), 100 * self.args.batch_size)
-        input_b, act_b, target_b = self.get_batch(loss_batch_size)
+        input_b, act_b, target_b = self.get_batch(self.args.batch_size)
         null_target = np.zeros(act_b.shape)
         loss_online = self.q_network['online'].evaluate([input_b, act_b],
             [target_b, null_target], verbose=0)
@@ -105,7 +113,6 @@ class DQNAgent(object):
             env.reset()
             state, state_mem, episode_reward, done = self.get_state(env, 0)
 
-            # episode loop
             for ep_len in xrange(self.args.max_episode_length):
                 if done:
                     break
@@ -148,7 +155,7 @@ class DQNAgent(object):
         self.q_network['target'].set_weights(online_weights)
 
     def get_batch(self, batch_size):
-        mini_batch = random.sample(self.memory, batch_size)
+        mini_batch = self.memory.sample(batch_size)
         input_b = []
         act_b = []
         one_hot_eye = np.eye(self.num_actions, dtype=np.float32)

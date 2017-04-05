@@ -8,8 +8,8 @@ import subprocess
 
 import numpy as np
 import tensorflow as tf
-from keras.layers import (Activation, Convolution2D, Dense, Flatten, Input,
-                          Permute, Lambda, Merge, merge)
+from keras.layers import (Conv2D, Dense, Flatten, Input,
+                          Lambda, Merge, merge)
 from keras import backend as K
 from keras.models import Model, Sequential
 from keras.optimizers import Adam
@@ -18,21 +18,21 @@ from dqn import DQNAgent
 from objectives import mean_huber_loss, null_loss
 from preprocessors import AtariPreprocessor
 from policy import *
+from memory import ReplayMemory
 
 import gym
 from gym import wrappers
-from collections import deque
 import cPickle as pickle
 
 
 def create_model(window, input_shape, num_actions, model_name='dqn'):
     model_input_shape = tuple([window] + list(input_shape))
     state = Input(shape=model_input_shape)
-    conv1 = Convolution2D(32, 8, 8, subsample=(4, 4),
+    conv1 = Conv2D(32, 8, 8, subsample=(4, 4),
         border_mode='same', activation='relu', init='uniform')(state)
-    conv2 = Convolution2D(64, 4, 4, subsample=(2, 2),
+    conv2 = Conv2D(64, 4, 4, subsample=(2, 2),
         border_mode='same', activation='relu', init='uniform')(conv1)
-    conv3 = Convolution2D(64, 3, 3, subsample=(1, 1),
+    conv3 = Conv2D(64, 3, 3, subsample=(1, 1),
         border_mode='same', activation='relu', init='uniform')(conv2)
     feature = Flatten()(conv3)
     if model_name == 'dqn':
@@ -106,6 +106,8 @@ def main():
                         help='Number of training sampled interactions with the environment')
     parser.add_argument('--max_episode_length', default=999999, type=int,
                         help='Maximum length of an episode')
+    parser.add_argument('--save_interval', default=100000, type=int,
+                        help='Interval to save weights and memory')
 
     parser.add_argument('--model_name', default='dqn', type=str,
                         help='Model name')
@@ -134,23 +136,20 @@ def main():
     model_target = create_model(args.num_frame, args.input_shape,
         num_actions, model_name=args.model_name)
 
-    q_network = {}
-    q_network['online'] = model_online
-    q_network['target'] = model_target
+    q_network = {'online': model_online, 'target': model_target}
 
     preproc = AtariPreprocessor(args.input_shape)
-    memory = deque(maxlen=int(args.replay_buffer_size / args.num_frame))
+    memory = ReplayMemory(args.replay_buffer_size, args.num_frame)
 
-    policy = {}
-    policy['random'] = UniformRandomPolicy(num_actions)
-    policy['train'] = LinearDecayGreedyEpsilonPolicy(args.explore_prob + 0.5,
-                                                     args.explore_prob,
-                                                     args.num_train)
-    policy['eval'] = GreedyEpsilonPolicy(args.explore_prob)
+    policy_random = UniformRandomPolicy(num_actions)
+    policy_train = LinearDecayGreedyEpsilonPolicy(args.explore_prob + 0.5,
+                                                  args.explore_prob,
+                                                  args.num_train)
+    policy_eval = GreedyEpsilonPolicy(args.explore_prob)
+    policy = {'random': policy_random, 'train': policy_train, 'eval': policy_eval}
+
     agent = DQNAgent(num_actions, q_network, preproc, memory, policy, args)
     agent.compile([mean_huber_loss, null_loss], opt_adam)
-    
-    
 
     print '########## training #############'
     agent.fit(env)
