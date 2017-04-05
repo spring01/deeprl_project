@@ -67,7 +67,10 @@ class DQNAgent(object):
 
                 # update networks
                 if _every(iter_num, self.args.online_train_interval):
-                    self.train_online()
+                    if self.args.double_q:
+                        self.train_online_double()
+                    else:
+                        self.train_online()
                 if _every(iter_num, self.args.target_reset_interval):
                     self.update_target()
 
@@ -100,11 +103,32 @@ class DQNAgent(object):
         return self.q_network['online'].predict([state, self.null_act])[1]
 
     def train_online(self):
-        input_b, act_b, target_b = self.get_batch(self.args.batch_size)
+        mini_batch, input_b, act_b, input_b_n = self.get_batch()
+        target_b = self.get_target(mini_batch, input_b_n, act_b)
         self.q_network['online'].train_on_batch([input_b, act_b], [target_b, self.null_target])
 
+    def train_online_double(self):
+        mini_batch, input_b, act_b, input_b_n = self.get_batch()
+        online_net, target_net = self.roll_online_target()
+        target_b = self.get_target_double(mini_batch, input_b_n, act_b, online_net, target_net)
+        online_net.train_on_batch([input_b, act_b], [target_b, self.null_target])
+
+    def roll_online_target(self):
+        if np.random.rand() < 0.5:
+            online_net = self.q_network['target']
+            target_net = self.q_network['online']
+        else:
+            online_net = self.q_network['online']
+            target_net = self.q_network['target']
+        return online_net, target_net
+
     def print_loss(self):
-        input_b, act_b, target_b = self.get_batch(self.args.batch_size)
+        mini_batch, input_b, act_b, input_b_n = self.get_batch()
+        if self.args.double_q:
+            online_net, target_net = self.roll_online_target()
+            target_b = self.get_target_double(mini_batch, input_b_n, act_b, online_net, target_net)
+        else:
+            target_b = self.get_target(mini_batch, input_b_n, act_b)
         null_target = np.zeros(act_b.shape)
         loss_online = self.q_network['online'].evaluate([input_b, act_b],
             [target_b, null_target], verbose=0)
@@ -159,8 +183,8 @@ class DQNAgent(object):
         online_weights = self.q_network['online'].get_weights()
         self.q_network['target'].set_weights(online_weights)
 
-    def get_batch(self, batch_size):
-        mini_batch = self.memory.sample(batch_size)
+    def get_batch(self):
+        mini_batch = self.memory.sample(self.args.batch_size)
         input_b = []
         act_b = []
         one_hot_eye = np.eye(self.num_actions, dtype=np.float32)
@@ -174,21 +198,29 @@ class DQNAgent(object):
         input_b = np.stack(input_b)
         act_b = np.stack(act_b)
         input_b_n = np.stack(input_b_n)
+        return mini_batch, input_b, act_b, input_b_n
 
+    def get_target(self, mini_batch, input_b_n, act_b):
         q_target_b_n = self.q_network['target'].predict([input_b_n, act_b])[1]
         target_b = []
-        for q_target, (_, _, rew, _, done_b) in zip(q_target_b_n, mini_batch):
+        for q_target_n, (_, _, rew, _, done_b) in zip(q_target_b_n, mini_batch):
             full_reward = rew
             if not done_b:
-                if self.args.double_q:
-                    new_act = np.argmax(q_target)
-                    long_term = q_target[new_act]
-                else:
-                    long_term = np.max(q_target)
+                full_reward += self.args.discount * np.max(q_target_n)
+            target_b.append([full_reward])
+        return np.stack(target_b)
+
+    def get_target_double(self, mini_batch, input_b_n, act_b, online_net, target_net):
+        q_online_b_n = online_net.predict([input_b_n, act_b])[1]
+        q_target_b_n = target_net.predict([input_b_n, act_b])[1]
+        target_b = []
+        for i, (_, _, rew, _, done_b) in enumerate(mini_batch):
+            full_reward = rew
+            if not done_b:
+                long_term = q_online_b_n[i, np.argmax(q_target_b_n[i])]
                 full_reward += self.args.discount * long_term
             target_b.append([full_reward])
-        target_b = np.stack(target_b)
-        return input_b, act_b, target_b
+        return np.stack(target_b)
 
 def _every(iter_num, interval):
     return not (iter_num % interval)
