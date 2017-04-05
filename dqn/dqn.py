@@ -80,7 +80,8 @@ class DQNAgent(object):
 
                 # save model
                 if _every(iter_num, self.args.save_interval):
-                    weights_save_name = os.path.join(self.args.output, 'online_{:d}.h5'.format(iter_num))
+                    weights_save_name = os.path.join(self.args.output,
+                        'online_{:d}.h5'.format(iter_num))
                     print '########## saving models and memory #############'
                     self.q_network['online'].save_weights(weights_save_name)
                     print 'online weights written to {:s}'.format(weights_save_name)
@@ -105,28 +106,23 @@ class DQNAgent(object):
     def train_online(self):
         mini_batch, input_b, act_b, input_b_n = self.get_batch()
         target_b = self.get_target(mini_batch, input_b_n, act_b)
-        self.q_network['online'].train_on_batch([input_b, act_b], [target_b, self.null_target])
+        self.q_network['online'].train_on_batch([input_b, act_b],
+            [target_b, self.null_target])
 
     def train_online_double(self):
         mini_batch, input_b, act_b, input_b_n = self.get_batch()
         online_net, target_net = self.roll_online_target()
-        target_b = self.get_target_double(mini_batch, input_b_n, act_b, online_net, target_net)
-        online_net.train_on_batch([input_b, act_b], [target_b, self.null_target])
-
-    def roll_online_target(self):
-        if np.random.rand() < 0.5:
-            online_net = self.q_network['target']
-            target_net = self.q_network['online']
-        else:
-            online_net = self.q_network['online']
-            target_net = self.q_network['target']
-        return online_net, target_net
+        target_b = self.get_target_double(mini_batch, input_b_n, act_b,
+            online_net, target_net)
+        online_net.train_on_batch([input_b, act_b],
+            [target_b, self.null_target])
 
     def print_loss(self):
         mini_batch, input_b, act_b, input_b_n = self.get_batch()
         if self.args.double_q:
             online_net, target_net = self.roll_online_target()
-            target_b = self.get_target_double(mini_batch, input_b_n, act_b, online_net, target_net)
+            target_b = self.get_target_double(mini_batch, input_b_n, act_b,
+                online_net, target_net)
         else:
             target_b = self.get_target(mini_batch, input_b_n, act_b)
         null_target = np.zeros(act_b.shape)
@@ -203,22 +199,32 @@ class DQNAgent(object):
     def get_target(self, mini_batch, input_b_n, act_b):
         q_target_b_n = self.q_network['target'].predict([input_b_n, act_b])[1]
         target_b = []
-        for q_target_n, (_, _, rew, _, done_b) in zip(q_target_b_n, mini_batch):
+        for qtn, (_, _, rew, _, db) in zip(q_target_b_n, mini_batch):
             full_reward = rew
-            if not done_b:
-                full_reward += self.args.discount * np.max(q_target_n)
+            if not db:
+                full_reward += self.args.discount * np.max(qtn)
             target_b.append([full_reward])
         return np.stack(target_b)
 
-    def get_target_double(self, mini_batch, input_b_n, act_b, online_net, target_net):
+    def roll_online_target(self):
+        if np.random.rand() < 0.5:
+            online_net = self.q_network['target']
+            target_net = self.q_network['online']
+        else:
+            online_net = self.q_network['online']
+            target_net = self.q_network['target']
+        return online_net, target_net
+
+    def get_target_double(self, mini_batch, input_b_n, act_b,
+                          online_net, target_net):
         q_online_b_n = online_net.predict([input_b_n, act_b])[1]
         q_target_b_n = target_net.predict([input_b_n, act_b])[1]
         target_b = []
-        for i, (_, _, rew, _, done_b) in enumerate(mini_batch):
+        ziplist = zip(q_online_b_n, q_target_b_n, mini_batch)
+        for qon, qtn, (_, _, rew, _, db) in ziplist:
             full_reward = rew
-            if not done_b:
-                long_term = q_online_b_n[i, np.argmax(q_target_b_n[i])]
-                full_reward += self.args.discount * long_term
+            if not db:
+                full_reward += self.args.discount * qon[np.argmax(qtn)]
             target_b.append([full_reward])
         return np.stack(target_b)
 
