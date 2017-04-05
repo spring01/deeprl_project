@@ -14,11 +14,11 @@ from keras import backend as K
 from keras.models import Model, Sequential
 from keras.optimizers import Adam
 
-from dqn import DQNAgent
-from objectives import mean_huber_loss, null_loss
-from preprocessors import AtariPreprocessor
-from policy import *
-from memory import ReplayMemory
+from dqn.dqn import DQNAgent
+from dqn.objectives import mean_huber_loss, null_loss
+from dqn.preprocessors import AtariPreprocessor
+from dqn.policy import *
+from dqn.memory import ReplayMemory
 
 import gym
 from gym import wrappers
