@@ -129,6 +129,11 @@ def main():
     parser.add_argument('--do_render', default=False, type=bool,
                         help='Do rendering or not')
 
+    parser.add_argument('--read_weights', default=None, type=str,
+                        help='Read weights from file')
+    parser.add_argument('--read_memory', default=None, type=str,
+                        help='Read memory from file')
+
     args = parser.parse_args()
     args.input_shape = tuple(args.input_shape)
     args.output = get_output_folder(args.output, args.env)
@@ -155,6 +160,12 @@ def main():
 
     agent = DQNAgent(num_actions, q_network, preproc, memory, policy, args)
     agent.compile([mean_huber_loss, null_loss], opt_adam)
+
+    if args.read_weights is not None:
+        agent.q_network['online'].load_weights(args.read_weights)
+    if args.read_memory is not None:
+        with open(args.read_memory, 'rb') as save_memory:
+            agent.memory = pickle.load(save_memory)
 
     print '########## training #############'
     agent.fit(env)
