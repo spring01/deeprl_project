@@ -50,7 +50,7 @@ def create_model(window, input_shape, num_actions, model_name='dqn'):
         q_value = add([exp_value2, sum_adv])
     act = Input(shape=(num_actions,))
     q_value_act = dot([q_value, act], axes=1)
-    model = Model(input=[state, act], output=[q_value_act, q_value])
+    model = Model(inputs=[state, act], outputs=[q_value_act, q_value])
     return model
 
 
