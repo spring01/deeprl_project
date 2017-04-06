@@ -8,8 +8,7 @@ import subprocess
 
 import numpy as np
 import tensorflow as tf
-from keras.layers import (Conv2D, Dense, Flatten, Input,
-                          Lambda, Merge, merge)
+from keras.layers import Conv2D, Dense, Flatten, Input, Lambda, add, dot
 from keras import backend as K
 from keras.models import Model, Sequential
 from keras.optimizers import Adam
@@ -26,31 +25,31 @@ import cPickle as pickle
 
 
 def create_model(window, input_shape, num_actions, model_name='dqn'):
-    model_input_shape = tuple([window] + list(input_shape))
+    model_input_shape = tuple(list(input_shape) + [window])
     state = Input(shape=model_input_shape)
-    conv1 = Conv2D(32, 8, 8, subsample=(4, 4),
-        border_mode='same', activation='relu', init='uniform')(state)
-    conv2 = Conv2D(64, 4, 4, subsample=(2, 2),
-        border_mode='same', activation='relu', init='uniform')(conv1)
-    conv3 = Conv2D(64, 3, 3, subsample=(1, 1),
-        border_mode='same', activation='relu', init='uniform')(conv2)
+    conv1 = Conv2D(32, (8, 8), strides=(4, 4),
+        padding='same', activation='relu', kernel_initializer='uniform')(state)
+    conv2 = Conv2D(64, (4, 4), strides=(2, 2),
+        padding='same', activation='relu', kernel_initializer='uniform')(conv1)
+    conv3 = Conv2D(64, (3, 3), strides=(1, 1),
+        padding='same', activation='relu', kernel_initializer='uniform')(conv2)
     feature = Flatten()(conv3)
     if model_name == 'dqn':
-        hid = Dense(512, activation='relu', init='uniform')(feature)
-        q_value = Dense(num_actions, init='uniform')(hid)
+        hid = Dense(512, activation='relu', kernel_initializer='uniform')(feature)
+        q_value = Dense(num_actions, kernel_initializer='uniform')(hid)
     elif model_name == 'dueling_dqn':
-        value1 = Dense(512, activation='relu', init='uniform')(feature)
+        value1 = Dense(512, activation='relu', kernel_initializer='uniform')(feature)
         value2 = Dense(1)(value1)
-        advantage1 = Dense(512, activation='relu', init='uniform')(feature)
-        advantage2 = Dense(num_actions, init='uniform')(advantage1)
+        advantage1 = Dense(512, activation='relu', kernel_initializer='uniform')(feature)
+        advantage2 = Dense(num_actions, kernel_initializer='uniform')(advantage1)
         mean_advantage2 = Lambda(lambda x: K.mean(x, axis=1))(advantage2)
         ones = K.ones([1, num_actions])
-        exp_mean_advantage2 = Lambda(lambda x: K.dot(K.expand_dims(x, dim=1), -ones))(mean_advantage2)
-        sum_adv = merge([exp_mean_advantage2, advantage2], mode='sum')
+        exp_mean_advantage2 = Lambda(lambda x: K.dot(K.expand_dims(x, axis=1), -ones))(mean_advantage2)
+        sum_adv = add([exp_mean_advantage2, advantage2])
         exp_value2 = Lambda(lambda x: K.dot(x, ones))(value2)
-        q_value = merge([exp_value2, sum_adv], mode='sum')
+        q_value = add([exp_value2, sum_adv])
     act = Input(shape=(num_actions,))
-    q_value_act = merge([q_value, act], mode='dot')
+    q_value_act = dot([q_value, act], axes=1)
     model = Model(input=[state, act], output=[q_value_act, q_value])
     return model
 

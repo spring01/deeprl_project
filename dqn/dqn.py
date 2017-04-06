@@ -169,7 +169,7 @@ class DQNAgent(object):
                 reward += obs_reward
                 done = done or obs_done
             state_mem_next.append(obs_next_mem)
-        state_mem_next = np.stack(state_mem_next)
+        state_mem_next = np.stack(state_mem_next, axis=2)
         state_next = self.preproc.state_mem_to_state(state_mem_next)
         state_next = np.stack([state_next])
         return state_next, state_mem_next, reward, done
