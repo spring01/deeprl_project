@@ -26,7 +26,7 @@ class DQNAgent(object):
 
         # filling in self.args.num_burn_in states
         print '########## burning in some samples #############'
-        while self.memory.length() < self.args.num_burn_in:
+        while len(self.memory) < self.args.num_burn_in:
             env.reset()
             state, state_mem, _, done = self.get_state(env, 0)
 
