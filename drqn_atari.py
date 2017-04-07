@@ -9,7 +9,7 @@ import subprocess
 import numpy as np
 import tensorflow as tf
 from keras.layers import Conv2D, Dense, Flatten, Input, Lambda, add, dot
-from keras.layers import TimeDistributed, LSTM
+from keras.layers import TimeDistributed, LSTM, GRU
 from keras import backend as K
 from keras.models import Model, Sequential
 from keras.optimizers import Adam
@@ -35,13 +35,37 @@ def create_model(timestep, input_shape, num_frame, num_actions, model_name='dqn'
     conv3 = TimeDistributed(Conv2D(64, (3, 3), strides=(1, 1),
         padding='same', activation='relu', kernel_initializer='uniform'))(conv2)
     feature = TimeDistributed(Flatten())(conv3)
-    if model_name == 'drqn':
+    if model_name == 'lstm':
         hid = LSTM(512, kernel_initializer='uniform')(feature)
         q_value = Dense(num_actions, kernel_initializer='uniform')(hid)
-    elif model_name == 'dueling_drqn':
-        value1 = LSTM(512, kernel_initializer='uniform')(feature)
+    if model_name == 'gru':
+        hid = GRU(512, kernel_initializer='uniform')(feature)
+        q_value = Dense(num_actions, kernel_initializer='uniform')(hid)
+    elif 'dueling' in model_name:
+        if model_name == 'dueling_lstm':
+            value1 = LSTM(512, kernel_initializer='uniform')(feature)
+            advantage1 = LSTM(512, kernel_initializer='uniform')(feature)
+        elif model_name == 'dueling_gru':
+            value1 = GRU(512, kernel_initializer='uniform')(feature)
+            advantage1 = GRU(512, kernel_initializer='uniform')(feature)
+        elif model_name == 'dueling_lstm_v_gru_a':
+            value1 = LSTM(512, kernel_initializer='uniform')(feature)
+            advantage1 = GRU(512, kernel_initializer='uniform')(feature)
+        elif model_name == 'dueling_gru_v_lstm_a':
+            value1 = GRU(512, kernel_initializer='uniform')(feature)
+            advantage1 = LSTM(512, kernel_initializer='uniform')(feature)
         value2 = Dense(1)(value1)
-        advantage1 = LSTM(512, kernel_initializer='uniform')(feature)
+        advantage2 = Dense(num_actions, kernel_initializer='uniform')(advantage1)
+        mean_advantage2 = Lambda(lambda x: K.mean(x, axis=1))(advantage2)
+        ones = K.ones([1, num_actions])
+        exp_mean_advantage2 = Lambda(lambda x: K.dot(K.expand_dims(x, axis=1), -ones))(mean_advantage2)
+        sum_adv = add([exp_mean_advantage2, advantage2])
+        exp_value2 = Lambda(lambda x: K.dot(x, ones))(value2)
+        q_value = add([exp_value2, sum_adv])
+    elif model_name == 'dueling_gru':
+        value1 = GRU(512, kernel_initializer='uniform')(feature)
+        value2 = Dense(1)(value1)
+        advantage1 = GRU(512, kernel_initializer='uniform')(feature)
         advantage2 = Dense(num_actions, kernel_initializer='uniform')(advantage1)
         mean_advantage2 = Lambda(lambda x: K.mean(x, axis=1))(advantage2)
         ones = K.ones([1, num_actions])
@@ -143,6 +167,7 @@ def main():
                         help='Read memory from file')
 
     args = parser.parse_args()
+    print '########## All arguments ##########:', args
     args.input_shape = tuple(args.input_shape)
     args.output = get_output_folder(args.output, args.env)
 

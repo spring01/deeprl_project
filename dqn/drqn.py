@@ -78,7 +78,6 @@ class DRQNAgent(object):
                 # update networks
                 if _every(iter_num, self.args.online_train_interval):
                     if self.args.double_q:
-                        # todo: here
                         self.train_online_double()
                     else:
                         self.train_online()
