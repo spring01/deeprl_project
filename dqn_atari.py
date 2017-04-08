@@ -135,6 +135,7 @@ def main():
                         help='Read memory from file')
 
     args = parser.parse_args()
+    print '########## All arguments ##########:', args
     args.input_shape = tuple(args.input_shape)
     args.output = get_output_folder(args.output, args.env)
 
