@@ -28,44 +28,39 @@ def create_model(timestep, input_shape, num_frame, num_actions, model_name='dqn'
     model_input_shape = tuple([timestep] + list(input_shape) + [num_frame])
     seq_state = Input(shape=model_input_shape)
     conv1 = TimeDistributed(Conv2D(32, (8, 8), strides=(4, 4),
-        padding='same', activation='relu', kernel_initializer='uniform'))(seq_state)
+        padding='same', activation='relu'))(seq_state)
     conv2 = TimeDistributed(Conv2D(64, (4, 4), strides=(2, 2),
-        padding='same', activation='relu', kernel_initializer='uniform'))(conv1)
+        padding='same', activation='relu'))(conv1)
     conv3 = TimeDistributed(Conv2D(64, (3, 3), strides=(1, 1),
-        padding='same', activation='relu', kernel_initializer='uniform'))(conv2)
+        padding='same', activation='relu'))(conv2)
     feature = TimeDistributed(Flatten())(conv3)
     if model_name == 'lstm':
-        hid = LSTM(512, kernel_initializer='uniform')(feature)
-        q_value = Dense(num_actions, kernel_initializer='uniform')(hid)
-    if model_name == 'gru':
-        hid = GRU(512, kernel_initializer='uniform')(feature)
-        q_value = Dense(num_actions, kernel_initializer='uniform')(hid)
+        hid = LSTM(512)(feature)
+        q_value = Dense(num_actions)(hid)
+    elif model_name == 'lstmrelu':
+        hid = LSTM(512, activation='relu')(feature)
+        q_value = Dense(num_actions)(hid)
+    elif model_name == 'gru':
+        hid = GRU(512)(feature)
+        q_value = Dense(num_actions)(hid)
     elif 'dueling' in model_name:
         if model_name == 'dueling_lstm':
-            value1 = LSTM(512, kernel_initializer='uniform')(feature)
-            advantage1 = LSTM(512, kernel_initializer='uniform')(feature)
+            value1 = LSTM(512)(feature)
+            advantage1 = LSTM(512)(feature)
+        elif model_name == 'dueling_lstmrelu':
+            value1 = LSTM(512, activation='relu')(feature)
+            advantage1 = LSTM(512, activation='relu')(feature)
         elif model_name == 'dueling_gru':
-            value1 = GRU(512, kernel_initializer='uniform')(feature)
-            advantage1 = GRU(512, kernel_initializer='uniform')(feature)
+            value1 = GRU(512)(feature)
+            advantage1 = GRU(512)(feature)
         elif model_name == 'dueling_lstm_v_gru_a':
-            value1 = LSTM(512, kernel_initializer='uniform')(feature)
-            advantage1 = GRU(512, kernel_initializer='uniform')(feature)
+            value1 = LSTM(512)(feature)
+            advantage1 = GRU(512)(feature)
         elif model_name == 'dueling_gru_v_lstm_a':
-            value1 = GRU(512, kernel_initializer='uniform')(feature)
-            advantage1 = LSTM(512, kernel_initializer='uniform')(feature)
+            value1 = GRU(512)(feature)
+            advantage1 = LSTM(512)(feature)
         value2 = Dense(1)(value1)
-        advantage2 = Dense(num_actions, kernel_initializer='uniform')(advantage1)
-        mean_advantage2 = Lambda(lambda x: K.mean(x, axis=1))(advantage2)
-        ones = K.ones([1, num_actions])
-        exp_mean_advantage2 = Lambda(lambda x: K.dot(K.expand_dims(x, axis=1), -ones))(mean_advantage2)
-        sum_adv = add([exp_mean_advantage2, advantage2])
-        exp_value2 = Lambda(lambda x: K.dot(x, ones))(value2)
-        q_value = add([exp_value2, sum_adv])
-    elif model_name == 'dueling_gru':
-        value1 = GRU(512, kernel_initializer='uniform')(feature)
-        value2 = Dense(1)(value1)
-        advantage1 = GRU(512, kernel_initializer='uniform')(feature)
-        advantage2 = Dense(num_actions, kernel_initializer='uniform')(advantage1)
+        advantage2 = Dense(num_actions)(advantage1)
         mean_advantage2 = Lambda(lambda x: K.mean(x, axis=1))(advantage2)
         ones = K.ones([1, num_actions])
         exp_mean_advantage2 = Lambda(lambda x: K.dot(K.expand_dims(x, axis=1), -ones))(mean_advantage2)
@@ -114,7 +109,7 @@ def main():
     parser.add_argument('--discount', default=0.99, type=float,
                         help='Discount factor gamma')
 
-    parser.add_argument('--online_train_interval', default=4, type=int,
+    parser.add_argument('--online_train_interval', default=16, type=int,
                         help='Interval to train the online network')
     parser.add_argument('--target_reset_interval', default=10000, type=int,
                         help='Interval to reset the target network')

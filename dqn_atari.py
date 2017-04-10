@@ -92,7 +92,7 @@ def main():
                         help='Interval to train the online network')
     parser.add_argument('--target_reset_interval', default=10000, type=int,
                         help='Interval to reset the target network')
-    parser.add_argument('--action_change_interval', default=4, type=int,
+    parser.add_argument('--action_change_interval', default=1, type=int,
                         help='Interval to change action')
 
     parser.add_argument('--num_burn_in', default=25000, type=int,
