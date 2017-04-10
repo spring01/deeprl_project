@@ -81,7 +81,7 @@ def main():
 
     parser.add_argument('--input_shape', nargs=2, type=int, default=None,
                         help='Input shape')
-    parser.add_argument('--num_frame', default=1, type=int,
+    parser.add_argument('--num_frame', default=4, type=int,
                         help='Number of frames in a state')
     parser.add_argument('--discount', default=0.99, type=float,
                         help='Discount factor gamma')
