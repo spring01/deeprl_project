@@ -3,7 +3,6 @@
 import argparse
 import os
 import sys
-import random
 import subprocess
 
 import numpy as np
@@ -88,10 +87,14 @@ def main():
                         help='Discount factor gamma')
     parser.add_argument('--replay_buffer_size', default=100000, type=int,
                         help='Replay buffer size')
+
     parser.add_argument('--online_train_interval', default=4, type=int,
                         help='Interval to train the online network')
     parser.add_argument('--target_reset_interval', default=10000, type=int,
                         help='Interval to reset the target network')
+    parser.add_argument('--action_change_interval', default=4, type=int,
+                        help='Interval to change action')
+
     parser.add_argument('--num_burn_in', default=25000, type=int,
                         help='Number of samples filled in memory before update')
     parser.add_argument('--batch_size', default=32, type=int,
@@ -153,11 +156,12 @@ def main():
     preproc = AtariPreprocessor(args.input_shape)
     memory = ReplayMemory(args.replay_buffer_size, args.num_frame)
 
+    policy_random = UniformRandomPolicy(num_actions)
     policy_train = LinearDecayGreedyEpsilonPolicy(args.decay_prob_start,
                                                   args.decay_prob_end,
                                                   args.decay_steps)
     policy_eval = GreedyEpsilonPolicy(args.explore_prob)
-    policy = {'train': policy_train, 'eval': policy_eval}
+    policy = {'random': policy_random, 'train': policy_train, 'eval': policy_eval}
 
     agent = DQNAgent(num_actions, q_network, preproc, memory, policy, args)
     agent.compile([mean_huber_loss, null_loss], opt_adam)

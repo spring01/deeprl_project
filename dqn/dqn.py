@@ -1,7 +1,6 @@
 
 import os
 import numpy as np
-import random
 
 
 class DQNAgent(object):
@@ -30,11 +29,12 @@ class DQNAgent(object):
             env.reset()
             state, state_mem, _, done = self.get_state(env, 0)
 
+            act = self.policy['random'].select_action()
             for ep_len in xrange(self.args.max_episode_length):
                 if done:
                     break
-                q_online = self.predict_online(state)
-                act = self.policy['train'].select_action(q_online, 0)
+                if _every(ep_len, self.args.action_change_interval):
+                    act = self.policy['random'].select_action()
                 state, state_mem_next, reward, done = self.get_state(env, act)
 
                 # store transition into replay memory
@@ -49,13 +49,16 @@ class DQNAgent(object):
             state, state_mem, _, done = self.get_state(env, 0)
 
             print '########## begin new episode #############'
+            q_online = self.predict_online(state)
+            act = self.policy['train'].select_action(q_online, iter_num)
             for ep_len in xrange(self.args.max_episode_length):
                 if done:
                     break
 
                 # get online q value and get action
-                q_online = self.predict_online(state)
-                act = self.policy['train'].select_action(q_online, iter_num)
+                if _every(ep_len, self.args.action_change_interval):
+                    q_online = self.predict_online(state)
+                    act = self.policy['train'].select_action(q_online, iter_num)
 
                 # do action to get the next state
                 state, state_mem_next, reward, done = self.get_state(env, act)

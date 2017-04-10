@@ -3,7 +3,6 @@
 import argparse
 import os
 import sys
-import random
 import subprocess
 
 import numpy as np
@@ -190,7 +189,7 @@ def main():
                                                   args.decay_prob_end,
                                                   args.decay_steps)
     policy_eval = GreedyEpsilonPolicy(args.explore_prob)
-    policy = {'random':policy_random, 'train': policy_train, 'eval': policy_eval}
+    policy = {'random': policy_random, 'train': policy_train, 'eval': policy_eval}
 
     agent = DRQNAgent(num_actions, q_network, preproc, memory, policy, args)
     agent.compile([mean_huber_loss, null_loss], opt_adam)

@@ -1,7 +1,6 @@
 
 import os
 import numpy as np
-import random
 from memory_episode import Episode
 from history import History
 
