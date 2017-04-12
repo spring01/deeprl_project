@@ -24,29 +24,40 @@ import cPickle as pickle
 
 
 def create_model(window, input_shape, num_actions, model_name='dqn'):
-    model_input_shape = tuple(list(input_shape) + [window])
+    width = input_shape[0]
+    model_input_shape = width, width, window
     state = Input(shape=model_input_shape)
-    conv1 = Conv2D(32, (8, 8), strides=(4, 4),
-        padding='same', activation='relu', kernel_initializer='uniform')(state)
-    conv2 = Conv2D(64, (4, 4), strides=(2, 2),
-        padding='same', activation='relu', kernel_initializer='uniform')(conv1)
-    conv3 = Conv2D(64, (3, 3), strides=(1, 1),
-        padding='same', activation='relu', kernel_initializer='uniform')(conv2)
-    feature = Flatten()(conv3)
-    if model_name == 'dqn':
-        hid = Dense(512, activation='relu', kernel_initializer='uniform')(feature)
-        q_value = Dense(num_actions, kernel_initializer='uniform')(hid)
-    elif model_name == 'dueling_dqn':
-        value1 = Dense(512, activation='relu', kernel_initializer='uniform')(feature)
-        value2 = Dense(1)(value1)
-        advantage1 = Dense(512, activation='relu', kernel_initializer='uniform')(feature)
-        advantage2 = Dense(num_actions, kernel_initializer='uniform')(advantage1)
-        mean_advantage2 = Lambda(lambda x: K.mean(x, axis=1))(advantage2)
-        ones = K.ones([1, num_actions])
-        exp_mean_advantage2 = Lambda(lambda x: K.dot(K.expand_dims(x, axis=1), -ones))(mean_advantage2)
-        sum_adv = add([exp_mean_advantage2, advantage2])
-        exp_value2 = Lambda(lambda x: K.dot(x, ones))(value2)
-        q_value = add([exp_value2, sum_adv])
+    if 'cheap' in model_name:
+        conv1 = Conv2D(16, (8, 8), strides=(4, 4),
+            padding='same', activation='relu')(state)
+        conv2 = Conv2D(32, (4, 4), strides=(2, 2),
+            padding='same', activation='relu')(conv1)
+        feature = Flatten()(conv2)
+        if model_name == 'cheap_dqn':
+            hid = Dense(128, activation='relu')(feature)
+            q_value = Dense(num_actions)(hid)
+    else:
+        conv1 = Conv2D(32, (8, 8), strides=(4, 4),
+            padding='same', activation='relu')(state)
+        conv2 = Conv2D(64, (4, 4), strides=(2, 2),
+            padding='same', activation='relu')(conv1)
+        conv3 = Conv2D(64, (3, 3), strides=(1, 1),
+            padding='same', activation='relu')(conv2)
+        feature = Flatten()(conv3)
+        if model_name == 'dqn':
+            hid = Dense(512, activation='relu')(feature)
+            q_value = Dense(num_actions)(hid)
+        elif model_name == 'dueling_dqn':
+            value1 = Dense(512, activation='relu')(feature)
+            value2 = Dense(1)(value1)
+            advantage1 = Dense(512, activation='relu')(feature)
+            advantage2 = Dense(num_actions)(advantage1)
+            mean_advantage2 = Lambda(lambda x: K.mean(x, axis=1))(advantage2)
+            ones = K.ones([1, num_actions])
+            exp_mean_advantage2 = Lambda(lambda x: K.dot(K.expand_dims(x, axis=1), -ones))(mean_advantage2)
+            sum_adv = add([exp_mean_advantage2, advantage2])
+            exp_value2 = Lambda(lambda x: K.dot(x, ones))(value2)
+            q_value = add([exp_value2, sum_adv])
     act = Input(shape=(num_actions,))
     q_value_act = dot([q_value, act], axes=1)
     model = Model(inputs=[state, act], outputs=[q_value_act, q_value])
@@ -85,8 +96,6 @@ def main():
                         help='Number of frames in a state')
     parser.add_argument('--discount', default=0.99, type=float,
                         help='Discount factor gamma')
-    parser.add_argument('--replay_buffer_size', default=100000, type=int,
-                        help='Replay buffer size')
 
     parser.add_argument('--online_train_interval', default=4, type=int,
                         help='Interval to train the online network')
@@ -94,7 +103,11 @@ def main():
                         help='Interval to reset the target network')
     parser.add_argument('--action_change_interval', default=1, type=int,
                         help='Interval to change action')
+    parser.add_argument('--print_loss_interval', default=100, type=int,
+                        help='Interval to print losses')
 
+    parser.add_argument('--replay_buffer_size', default=100000, type=int,
+                        help='Replay buffer size')
     parser.add_argument('--num_burn_in', default=25000, type=int,
                         help='Number of samples filled in memory before update')
     parser.add_argument('--batch_size', default=32, type=int,

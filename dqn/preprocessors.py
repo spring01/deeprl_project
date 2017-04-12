@@ -10,8 +10,11 @@ class AtariPreprocessor(object):
 
     def obs_to_obs_mem(self, state):
         img = Image.fromarray(state)
-        img = img.resize(self.new_size)
         img = img.convert('L')
+        img = img.resize(self.new_size)
+        width = self.new_size[0]
+        height = self.new_size[1]
+        img = img.crop((0, height - width, width, height))
         return np.asarray(img)
 
     def state_mem_to_state(self, state_mem):

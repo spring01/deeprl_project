@@ -94,7 +94,7 @@ class DQNAgent(object):
 
                 state_mem = state_mem_next
                 iter_num += 1
-                if _every(iter_num, 100):
+                if _every(iter_num, self.args.print_loss_interval):
                     self.print_loss()
             # evaluation
             if eval_flag:
