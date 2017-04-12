@@ -37,6 +37,17 @@ def create_model(window, input_shape, num_actions, model_name='dqn'):
         if model_name == 'cheap_lstm':
             hid = LSTM(128, activation='relu')(feature)
             q_value = Dense(num_actions)(hid)
+        elif model_name == 'cheap_dueling_lstm':
+            value1 = LSTM(128, activation='relu')(feature)
+            value2 = Dense(1)(value1)
+            advantage1 = LSTM(128, activation='relu')(feature)
+            advantage2 = Dense(num_actions)(advantage1)
+            mean_advantage2 = Lambda(lambda x: K.mean(x, axis=1))(advantage2)
+            ones = K.ones([1, num_actions])
+            exp_mean_advantage2 = Lambda(lambda x: K.dot(K.expand_dims(x, axis=1), -ones))(mean_advantage2)
+            sum_adv = add([exp_mean_advantage2, advantage2])
+            exp_value2 = Lambda(lambda x: K.dot(x, ones))(value2)
+            q_value = add([exp_value2, sum_adv])
     else:
         conv1 = Conv2D(32, (8, 8), strides=(4, 4),
             padding='same', activation='relu')(state)
